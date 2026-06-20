@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+    <title>Maya AI Assistant</title>
+    
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-main: #f8f9fa;
+            --bg-sidebar: #ffffff;
+            --bg-message-ai: #ffffff;
+            --bg-message-user: #e8f0fe;
+            --border-color: #dadce0;
+            --text-main: #1f1f1f;
+            --text-sub: #5f6368;
+            --accent: #1a73e8;
+            --accent-hover: #1557b0;
+            --error: #d93025;
+            --shadow: 0 1px 3px rgba(60,64,67,0.1), 0 4px 8px rgba(60,64,67,0.15);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        
+        html, body { 
+            background-color: var(--bg-main); 
+            color: var(--text-main); 
+            display: flex; 
+            height: 100%;
+            width: 100%;
+            overflow: hidden; 
+        }
+
+        /* ==========================================
+           LAYOUT: SIDEBAR (CHAT HISTORY)
+           ========================================== */
+        #sidebar {
+            width: 280px;
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100;
+        }
+
+        .new-chat-btn {
+            background: var(--accent);
+            color: #ffffff;
+            border: none;
+            padding: 14px;
+            border-radius: 24px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+            transition: background 0.2s;
+        }
+        .new-chat-btn:hover { background: var(--accent-hover); }
+
+        .history-label {
+            font-size: 0.75rem;
+            color: var(--text-sub);
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            padding-left: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #history-list { 
+            flex: 1; 
+            overflow-y: auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 8px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .history-item {
+            padding: 12px 14px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-main);
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid transparent;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .history-item:hover, .history-item.active { 
+            background: #f1f3f4; 
+            border-color: var(--border-color);
+        }
+        
+        .delete-thread-btn { 
+            color: var(--text-sub); 
+            border: none; 
+            background: none; 
+            cursor: pointer; 
+            display: flex;
+            align-items: center;
+            padding: 4px;
+            border-radius: 4px;
+        }
+        .delete-thread-btn:hover { background: #e8eaed; color: var(--error); }
+        .delete-thread-btn .material-icons { font-size: 1.2rem; }
+
+        /* ==========================================
+           LAYOUT: MAIN CONTENT AREA
+           ========================================== */
+        #main-content { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100%;
+            position: relative; 
+            background-color: var(--bg-main);
+        }
+        
+        header {
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-color);
+            background-color: #ffffff;
+            box-shadow: 0 1px 2px 0 rgba(60,64,67,0.05);
+        }
+        
+        /* Material UI Icon-Only Toggle */
+        .menu-toggle { 
+            background: none; 
+            border: none; 
+            color: var(--text-main); 
+            cursor: pointer; 
+            display: none; 
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            border-radius: 50%;
+        }
+        .menu-toggle:hover { background: #f1f3f4; }
+
+        #chat-window { 
+            flex: 1; 
+            overflow-y: auto; 
+            padding: 24px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 24px; 
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Message Bubble Design */
+        .msg-wrapper { display: flex; flex-direction: column; max-width: 80%; }
+        .msg-wrapper.user { align-self: flex-end; }
+        .msg-wrapper.ai { align-self: flex-start; }
+
+        .sender-tag { 
+            font-size: 0.8rem; 
+            color: var(--text-sub); 
+            font-weight: 600; 
+            margin-bottom: 6px; 
+            padding-left: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .msg-wrapper.user .sender-tag { align-self: flex-end; padding-right: 6px; flex-direction: row-reverse; }
+        .sender-tag .material-icons { font-size: 1rem; color: var(--text-sub); }
+        .msg-wrapper.ai .sender-tag .material-icons { color: var(--accent); }
+
+        .message { 
+            padding: 16px 20px; 
+            border-radius: 20px; 
+            font-size: 1rem; 
+            line-height: 1.6; 
+            word-wrap: break-word; 
+            white-space: pre-wrap;
+            box-shadow: 0 1px 2px 0 rgba(60,64,67,0.1);
+        }
+        .user .message { 
+            background-color: var(--bg-message-user); 
+            color: #185abc;
+            border-top-right-radius: 4px; 
+            border: 1px solid #d2e3fc;
+        }
+        .ai .message { 
+            background-color: var(--bg-message-ai); 
+            color: var(--text-main);
+            border-top-left-radius: 4px; 
+            border: 1px solid var(--border-color);
+        }
+        .system-error { 
+            background: #fce8e6; 
+            border: 1px solid var(--error); 
+            color: var(--error); 
+            text-align: center; 
+            width: 100%; 
+            max-width: 600px; 
+            align-self: center; 
+            border-radius: 12px; 
+            padding: 14px; 
+            font-weight: 500;
+        }
+
+        /* ==========================================
+           CONTROLS: INPUT SYSTEM PANEL
+           ========================================== */
+        #input-deck { 
+            padding: 20px; 
+            max-width: 840px; 
+            width: 100%; 
+            margin: 0 auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px; 
+            background-color: transparent; 
+        }
+        
+        .input-bar {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 32px;
+            display: flex;
+            align-items: center;
+            padding: 6px 12px 6px 16px;
+            gap: 12px;
+            box-shadow: var(--shadow);
+        }
+        .input-bar:focus-within { border-color: var(--accent); box-shadow: 0 1px 3px rgba(26,115,232,0.2), 0 4px 12px rgba(26,115,232,0.25); }
+
+        textarea {
+            flex: 1;
+            background: none;
+            border: none;
+            color: var(--text-main);
+            padding: 10px 0;
+            resize: none;
+            height: 44px;
+            font-size: 1.05rem;
+            outline: none;
+        }
+
+        .icon-btn { 
+            background: none; 
+            border: none; 
+            color: var(--text-sub); 
+            width: 42px;
+            height: 42px;
+            cursor: pointer;
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            transition: background 0.2s, color 0.2s;
+        }
+        .icon-btn:hover { background: #f1f3f4; color: var(--text-main); }
+        
+        /* High-Visibility Send Button with Material Icon */
+        #send-btn { 
+            background-color: var(--accent); 
+            color: #ffffff; 
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            box-shadow: 0 1px 3px rgba(26,115,232,0.4);
+        }
+        #send-btn:hover { background-color: var(--accent-hover); transform: scale(1.02); }
+        #send-btn:disabled { background-color: #e8eaed; color: #bcc1c6; box-shadow: none; cursor: not-allowed; transform: none; }
+
+        #img-preview-box { 
+            display: none; 
+            align-items: center; 
+            gap: 12px; 
+            background: #ffffff; 
+            padding: 8px 14px; 
+            border-radius: 16px; 
+            width: fit-content; 
+            border: 1px solid var(--border-color); 
+            box-shadow: var(--shadow);
+        }
+        #img-preview { height: 44px; border-radius: 8px; border: 1px solid var(--border-color); }
+        
+        .remove-img-btn {
+            color: var(--error);
+            background: none;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            border-radius: 50%;
+        }
+        .remove-img-btn:hover { background: #fce8e6; }
+
+        #sidebar-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.25); z-index: 90; backdrop-filter: blur(1px); }
+
+        /* ==========================================
+           RESPONSIVE BREAKPOINTS (ALL MOBILE PHONES)
+           ========================================== */
+        @media (max-width: 768px) {
+            .menu-toggle { display: flex; }
+            #sidebar {
+                position: fixed;
+                left: 0; top: 0; bottom: 0;
+                transform: translateX(-100%);
+            }
+            #sidebar.open { transform: translateX(0); }
+            #sidebar.open + #sidebar-overlay { display: block; }
+            .msg-wrapper { max-width: 90%; }
+            #input-deck { padding: 12px; }
+            .input-bar { padding: 6px 8px 6px 14px; gap: 8px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <button class="new-chat-btn" onclick="startNewThread()">
+            <span class="material-icons">add</span> New Conversation
+        </button>
+        <div class="history-label"><span class="material-icons" style="font-size:1.1rem;">folder_open</span> Saved Threads</div>
+        <div id="history-list"></div>
+    </div>
+    <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div id="main-content">
+        <header>
+            <button class="menu-toggle" onclick="toggleSidebar()">
+                <span class="material-icons">menu</span>
+            </button>
+            <div style="font-weight: 600; font-size: 1.1rem; color: var(--accent); display:flex; align-items:center; gap:8px;">
+                <span class="material-icons">wb_sunny</span> Maya Workspace
+            </div>
+            <div style="width:40px; display:none;" class="menu-toggle"></div>
+        </header>
+
+        <div id="chat-window"></div>
+
+        <div id="input-deck">
+            <div id="img-preview-box">
+                <img id="img-preview" src="" alt="Preview">
+                <button class="remove-img-btn" onclick="removeAttachedImage()" title="Remove Image">
+                    <span class="material-icons">cancel</span>
+                </button>
+            </div>
+
+            <div class="input-bar">
+                <label for="img-file-input" class="icon-btn" title="Attach Image">
+                    <span class="material-icons">image</span>
+                </label>
+                <input type="file" id="img-file-input" accept="image/*" style="display:none;" onchange="handleImageAttachment()">
+                
+                <textarea id="prompt-input" placeholder="Ask Maya a question..."></textarea>
+                
+                <button id="send-btn" class="icon-btn" onclick="submitMessage()" title="Send Prompt">
+                    <span class="material-icons">send</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { GoogleGenAI } from 'https://esm.run/@google/genai';
+
+        const API_KEY = "AQ.Ab8RN6K5cPXG-jihgIcCqRvq1IO9F-odHZi_O0C85d52QWufNw";
+        const ai = new GoogleGenAI({ apiKey: API_KEY });
+        
+        let activeThreadId = null;
+        let attachedBase64 = null;
+        let attachedMime = null;
+        let activeChatSession = null;
+
+        const TTL_DURATION = 24 * 60 * 60 * 1000; 
+
+        window.addEventListener('DOMContentLoaded', () => {
+            runStorageMaintenance();
+            loadHistoryMenu();
+            
+            if(document.getElementsByClassName('history-item').length > 0) {
+                const firstId = document.getElementById('history-list').firstChild.dataset.id;
+                loadThread(firstId);
+            } else {
+                startNewThread();
+            }
+        });
+
+        function runStorageMaintenance() {
+            const now = Date.now();
+            Object.keys(localStorage).forEach(key => {
+                if(key.startsWith("maya_thread_")) {
+                    try {
+                        const thread = JSON.parse(localStorage.getItem(key));
+                        if (!thread.timestamp || (now - thread.timestamp) > TTL_DURATION) {
+                            localStorage.removeItem(key);
+                        }
+                    } catch(e) {
+                        localStorage.removeItem(key);
+                    }
+                }
+            });
+        }
+
+        window.startNewThread = function() {
+            const id = "maya_thread_" + Date.now();
+            const newThreadObj = {
+                id: id,
+                title: "Empty Chat",
+                timestamp: Date.now(),
+                messages: []
+            };
+            localStorage.setItem(id, JSON.stringify(newThreadObj));
+            loadHistoryMenu();
+            loadThread(id);
+            if(document.getElementById('sidebar').classList.contains('open')) toggleSidebar();
+        }
+
+        function loadHistoryMenu() {
+            const list = document.getElementById('history-list');
+            list.innerHTML = '';
+            
+            const threads = Object.keys(localStorage)
+                .filter(k => k.startsWith("maya_thread_"))
+                .map(k => JSON.parse(localStorage.getItem(k)))
+                .sort((a,b) => b.timestamp - a.timestamp);
+
+            threads.forEach(t => {
+                const item = document.createElement('div');
+                item.className = `history-item ${t.id === activeThreadId ? 'active' : ''}`;
+                item.dataset.id = t.id;
+                item.innerHTML = `
+                    <span style="overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:8px;">
+                        <span class="material-icons" style="font-size:1.1rem; color:var(--text-sub);">chat_bubble_outline</span> ${t.title}
+                    </span>
+                    <button class="delete-thread-btn" onclick="event.stopPropagation(); deleteThread('${t.id}')">
+                        <span class="material-icons">delete</span>
+                    </button>
+                `;
+                item.addEventListener('click', () => {
+                    loadThread(t.id);
+                    if(window.innerWidth <= 768) toggleSidebar();
+                });
+                list.appendChild(item);
+            });
+        }
+
+        window.deleteThread = function(id) {
+            localStorage.removeItem(id);
+            loadHistoryMenu();
+            if(activeThreadId === id) {
+                const remaining = document.getElementsByClassName('history-item');
+                if(remaining.length > 0) loadThread(remaining[0].dataset.id);
+                else startNewThread();
+            }
+        }
+
+        function loadThread(id) {
+            activeThreadId = id;
+            const threadData = JSON.parse(localStorage.getItem(id));
+            
+            document.querySelectorAll('.history-item').forEach(el => {
+                el.classList.toggle('active', el.dataset.id === id);
+            });
+
+            const windowEl = document.getElementById('chat-window');
+            windowEl.innerHTML = '';
+
+            if(threadData.messages.length === 0) {
+                appendMessageBubble("Hello! I am Maya, your workspace companion. Let me know how I can help you today.", "ai", false);
+            } else {
+                threadData.messages.forEach(m => {
+                    appendMessageBubble(m.content, m.role, false);
+                });
+            }
+
+            activeChatSession = ai.chats.create({
+                model: 'gemini-2.5-flash',
+                config: {
+                    systemInstruction: "Your name is Maya. You are an expert workspace intelligence running within a modern, bright UI interface.",
+                    temperature: 0.65
+                }
+            });
+            
+            threadData.messages.forEach(m => {
+                if (m.role === 'user') activeChatSession.sendMessage({message: m.content});
+            });
+        }
+
+        window.submitMessage = async function() {
+            const input = document.getElementById('prompt-input');
+            const prompt = input.value.trim();
+            if(!prompt && !attachedBase64) return;
+
+            input.value = '';
+            input.disabled = true;
+            document.getElementById('send-btn').disabled = true;
+
+            appendMessageBubble(prompt || "Sent an Image Asset ", 'user', true);
+            const aiBubble = appendMessageBubble("Maya is working... ", 'ai', false);
+
+            try {
+                let stream;
+                if(attachedBase64) {
+                    const imgPart = { inlineData: { data: attachedBase64, mimeType: attachedMime } };
+                    stream = await ai.models.generateContentStream({
+                        model: 'gemini-2.5-flash',
+                        contents: [imgPart, prompt || "Analyze this image."]
+                    });
+                    removeAttachedImage();
+                } else {
+                    stream = await activeChatSession.sendMessageStream({ message: prompt });
+                }
+
+                aiBubble.innerText = '';
+                let accumulatedText = '';
+                
+                for await (const chunk of stream) {
+                    accumulatedText += chunk.text;
+                    aiBubble.innerText = accumulatedText;
+                    document.getElementById('chat-window').scrollTop = document.getElementById('chat-window').scrollHeight;
+                }
+
+                saveMessageToLocalStorage(prompt || "Sent an Image Asset ", 'user');
+                saveMessageToLocalStorage(accumulatedText, 'ai');
+
+            } catch(e) {
+                aiBubble.className = "message system-error";
+                aiBubble.innerText = ` Connection Error: ${e.message || e}`;
+            } finally {
+                input.disabled = false;
+                document.getElementById('send-btn').disabled = false;
+                input.focus();
+            }
+        }
+
+        function saveMessageToLocalStorage(content, role) {
+            const threadData = JSON.parse(localStorage.getItem(activeThreadId));
+            threadData.messages.push({ role, content });
+            
+            if(threadData.messages.length === 2 && role === 'user') {
+                threadData.title = content.substring(0, 18) + (content.length > 18 ? "..." : "");
+            }
+            
+            threadData.timestamp = Date.now();
+            localStorage.setItem(activeThreadId, JSON.stringify(threadData));
+            loadHistoryMenu();
+        }
+
+        function appendMessageBubble(text, sender, isUser) {
+            const win = document.getElementById('chat-window');
+            const wrapper = document.createElement('div');
+            wrapper.className = `msg-wrapper ${sender}`;
+            
+            const displayLabel = sender === 'user' ? 'You' : 'Maya';
+            const displayIcon = sender === 'user' ? 'account_circle' : 'auto_awesome';
+            
+            wrapper.innerHTML = `
+                <div class="sender-tag"><span class="material-icons">${displayIcon}</span> ${displayLabel}</div>
+                <div class="message">${text}</div>
+            `;
+            
+            win.appendChild(wrapper);
+            win.scrollTop = win.scrollHeight;
+            return wrapper.querySelector('.message');
+        }
+
+        window.handleImageAttachment = function() {
+            const file = document.getElementById('img-file-input').files[0];
+            if(!file) return;
+            
+            attachedMime = file.type;
+            const r = new FileReader();
+            r.onloadend = () => {
+                attachedBase64 = r.result.split(',')[1];
+                document.getElementById('img-preview').src = r.result;
+                document.getElementById('img-preview-box').style.display = 'flex';
+            };
+            r.readAsDataURL(file);
+        }
+
+        window.removeAttachedImage = function() {
+            attachedBase64 = null;
+            attachedMime = null;
+            document.getElementById('img-file-input').value = '';
+            document.getElementById('img-preview-box').style.display = 'none';
+        }
+
+        window.toggleSidebar = function() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        document.getElementById('prompt-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey && window.innerWidth > 768) {
+                e.preventDefault();
+                submitMessage();
+            }
+        });
+    </script>
+</body>
+</html>
